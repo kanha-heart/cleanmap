@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CleanMap – Community Cleanup & Hazard Tracker</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#1c2630; --muted:#6b7785; --brand:#0f8a5f; --brand-d:#0b6b4a; --open:#d64545; --prog:#e8a317; --ok:#2e9e5b; --line:#e1e6eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  header h1 { font-size:18px; margin:0; }
+  .mode { font-size:12px; background:rgba(255,255,255,.2); padding:3px 8px; border-radius:99px; }
+  nav { display:flex; gap:4px; background:var(--brand-d); padding:0 12px; }
+  nav button { background:none; border:none; color:#cfeee2; padding:12px 16px; font-size:15px; cursor:pointer; border-bottom:3px solid transparent; }
+  nav button.active { color:#fff; border-color:#fff; font-weight:600; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  .view { display:none; } .view.active { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:13px; font-weight:600; margin:12px 0 4px; }
+  select, input[type=text], textarea { width:100%; padding:10px; border:1px solid #c9d1d9; border-radius:8px; font-size:16px; font-family:inherit; background:#fff; }
+  textarea { min-height:80px; resize:vertical; }
+  button.btn { background:var(--brand); color:#fff; border:none; padding:10px 16px; border-radius:8px; font-size:15px; cursor:pointer; }
+  button.btn:hover { background:var(--brand-d); }
+  button.btn.secondary { background:#e8edf1; color:var(--ink); }
+  button.btn.small { padding:6px 10px; font-size:13px; }
+  button.btn:disabled { opacity:.5; cursor:not-allowed; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .camera-box { background:#0b0f12; border-radius:10px; overflow:hidden; position:relative; min-height:200px; display:flex; align-items:center; justify-content:center; }
+  .camera-box video, .camera-box img { width:100%; max-height:420px; object-fit:contain; display:block; }
+  .camera-box .ph { color:#8a97a3; padding:40px 12px; text-align:center; }
+  .hint { font-size:13px; color:var(--muted); margin-top:6px; }
+  .geo { font-size:14px; padding:8px 10px; background:#eef6f2; border-radius:8px; margin-top:6px; }
+  .geo.bad { background:#fdecec; color:#8a2d2d; }
+  .safety { font-size:13px; background:#fff6e0; border:1px solid #f0d58a; color:#6b5200; border-radius:8px; padding:8px 10px; margin-bottom:16px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:16px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .stat b { font-size:26px; display:block; } .stat span { font-size:12px; color:var(--muted); }
+  #map { height:420px; border-radius:12px; border:1px solid var(--line); margin-bottom:16px; }
+  .legend { font-size:12px; color:var(--muted); margin:-8px 0 12px; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin:0 4px 0 10px; vertical-align:middle; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .filters select { width:auto; min-width:140px; font-size:14px; padding:8px; }
+  .list { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:12px; }
+  .item { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .item img { width:100%; height:160px; object-fit:cover; display:block; cursor:pointer; }
+  .item .body { padding:10px 12px; font-size:14px; }
+  .pill { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; font-weight:600; }
+  .pill.open { background:#fde4e4; color:#a32d2d; }
+  .pill.in_progress { background:#fdf0cf; color:#8a5a00; }
+  .pill.closed { background:#dff3e6; color:#1d6e3d; }
+  .meta { color:var(--muted); font-size:12px; margin:4px 0; }
+  .assign { border-top:1px solid var(--line); margin-top:8px; padding-top:4px; }
+  .assign label { font-size:12px; margin:8px 0 3px; }
+  .assign input, .assign select { font-size:14px; padding:7px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#1c2630; color:#fff; padding:10px 16px; border-radius:8px; opacity:0; transition:.3s; pointer-events:none; z-index:9999; max-width:90vw; text-align:center; }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌿 CleanMap — Community Cleanup &amp; Hazard Tracker</h1>
+  <span class="mode" id="modeBadge">…</span>
+</header>
+<nav>
+  <button id="tabReport" class="active">📸 Report</button>
+  <button id="tabDash">📊 Dashboard</button>
+</nav>
+
+<main>
+  <!-- REPORT VIEW -->
+  <section id="viewReport" class="view active">
+    <div class="safety">⚠️ Stay safe: never touch needles, chemicals or broken glass. Take the photo from a safe distance and avoid including people's faces.</div>
+
+    <div class="card">
+      <b>1. Take a live photo</b>
+      <div class="camera-box" style="margin-top:8px">
+        <video id="video" playsinline autoplay muted style="display:none"></video>
+        <img id="preview" alt="Captured photo" style="display:none">
+        <div class="ph" id="camPlaceholder">No photo yet. Tap “Start camera”.</div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btnStart">Start camera</button>
+        <button class="btn" id="btnSnap" style="display:none">Capture</button>
+        <button class="btn secondary" id="btnRetake" style="display:none">Retake</button>
+        <label class="btn secondary" style="margin:0;cursor:pointer">
+          Use phone camera app
+          <input type="file" id="fileInput" accept="image/*" capture="environment" hidden>
+        </label>
+      </div>
+      <div class="hint">Camera needs HTTPS (or localhost). If live preview is blocked, use “Use phone camera app”.</div>
+      <canvas id="canvas" style="display:none"></canvas>
+    </div>
+
+    <div class="card">
+      <b>2. Location (auto)</b>
+      <div class="geo" id="geoBox">Locating…</div>
+      <div class="row" style="margin-top:8px"><button class="btn secondary small" id="btnGeo">Refresh location</button></div>
+    </div>
+
+    <div class="card">
+      <b>3. Tag &amp; describe</b>
+      <label for="tagSelect">Tag</label>
+      <select id="tagSelect"></select>
+      <label for="desc">Description / location details</label>
+      <textarea id="desc" placeholder="e.g. Broken glass near the north gate of the park, along the jogging path"></textarea>
+      <label for="reporter">Your name (optional)</label>
+      <input type="text" id="reporter" placeholder="Anonymous">
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="btnSubmit">Submit report</button>
+        <span class="hint" id="submitHint"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD VIEW -->
+  <section id="viewDash" class="view">
+    <div class="stats" id="stats"></div>
+    <div class="filters">
+      <select id="fTag"><option value="">All tags</option></select>
+      <select id="fStatus">
+        <option value="">All statuses</option>
+        <option value="open">Open</option>
+        <option value="in_progress">In progress</option>
+        <option value="closed">Closed</option>
+      </select>
+      <select id="fAssignee"><option value="">All people</option></select>
+      <button class="btn secondary small" id="btnRefresh">Refresh</button>
+      <button class="btn secondary small" id="btnCsv">Export CSV</button>
+      <button class="btn secondary small" id="btnSample" style="display:none">Load sample data</button>
+      <button class="btn secondary small" id="btnClear" style="display:none">Clear demo data</button>
+    </div>
+    <div id="map"></div>
+    <div class="legend">
+      <span class="dot" style="background:#d64545"></span>Open
+      <span class="dot" style="background:#e8a317"></span>In progress
+      <span class="dot" style="background:#2e9e5b"></span>Closed
+    </div>
+    <div class="list" id="list"></div>
+    <datalist id="assignees"></datalist>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
