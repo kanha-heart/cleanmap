@@ -42,7 +42,7 @@ create index if not exists reports_status_idx   on public.reports (status);
 insert into public.tags (name) values
   ('🦟 Mosquito breeding site'), ('💧 Stagnant water'), ('🧪 Hazardous material'),
   ('🛢️ Chemical spill'), ('🪟 Broken glass on path'), ('💉 Needles / sharps'),
-  ('🗑️ Illegal waste dump'), ('🧹 Cleanup needed')
+  ('🗑️ Illegal waste dump'), ('🧹 Cleanup needed'), (' Weeds')
 on conflict (name) do nothing;
 
 -- 4) Row Level Security
